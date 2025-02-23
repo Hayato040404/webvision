@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>WEBvision</title>
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+    #result {
+      border: 1px solid #ccc;
+      margin-top: 20px;
+      padding: 10px;
+    }
+    .notice {
+      color: red;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>URLプレビュー</h1>
+  <p class="notice">
+    使用する際は、必ず
+    <a href="https://cors-anywhere.herokuapp.com/" target="_blank">
+      https://cors-anywhere.herokuapp.com/
+    </a>
+    にアクセスしてください
+  </p>
+  <p>表示したいURLを入力してください（例: https://example.com）</p>
+  <form id="urlForm">
+    <input type="text" id="urlInput" placeholder="https://example.com" style="width:300px;" required>
+    <button type="submit">取得する</button>
+  </form>
+  <hr>
+  <div id="result"></div>
+
+  <script>
+    document.getElementById('urlForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const inputUrl = document.getElementById('urlInput').value;
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '取得中...';
+
+      try {
+        // CORSプロキシを利用（開発目的での一時的な対策）
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const response = await fetch(proxyUrl + inputUrl);
+        if (!response.ok) throw new Error('ネットワークエラーです');
+        const htmlText = await response.text();
+
+        // 取得したHTMLをDOMParserでパース
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, 'text/html');
+
+        // 基準となるURLを作成
+        const baseUrl = new URL(inputUrl);
+
+        // 相対パスを絶対パスに変換する関数
+        function toAbsolute(urlStr) {
+          try {
+            return new URL(urlStr, baseUrl).href;
+          } catch (e) {
+            return urlStr;
+          }
+        }
+
+        // imgタグのsrc属性を絶対パスに変換
+        doc.querySelectorAll('img').forEach(img => {
+          const src = img.getAttribute('src');
+          if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+            img.setAttribute('src', toAbsolute(src));
+          }
+        });
+
+        // linkタグのhref属性を絶対パスに変換
+        doc.querySelectorAll('link').forEach(link => {
+          const href = link.getAttribute('href');
+          if (href && !href.startsWith('http')) {
+            link.setAttribute('href', toAbsolute(href));
+          }
+        });
+
+        // scriptタグのsrc属性を絶対パスに変換
+        doc.querySelectorAll('script').forEach(script => {
+          const src = script.getAttribute('src');
+          if (src && !src.startsWith('http')) {
+            script.setAttribute('src', toAbsolute(src));
+          }
+        });
+
+        // aタグのhref属性を絶対パスに変換
+        doc.querySelectorAll('a').forEach(a => {
+          const href = a.getAttribute('href');
+          if (href && !href.startsWith('http')) {
+            a.setAttribute('href', toAbsolute(href));
+          }
+        });
+
+        // 取得したコンテンツ全体を表示（headタグやスクリプトが含まれる場合、レイアウト崩れなどの影響が出る可能性があります）
+        resultDiv.innerHTML = doc.documentElement.innerHTML;
+      } catch (err) {
+        resultDiv.textContent = 'エラーが発生しました: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
