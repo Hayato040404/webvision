@@ -2,11 +2,10 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Web VISION V5</title>
+  <title>WEB VISION V6</title>
   <style>
     body {
       font-family: sans-serif;
-      margin: 20px;
     }
     #result {
       margin-top: 20px;
@@ -24,11 +23,15 @@
   </style>
 </head>
 <body>
-  <h1>Web VISION V5</h1>
+  <h1>URLプレビュー</h1>
   <p class="notice">
- これは、ｗｅb制作者が自作したプロキシサーバーが含まれています。
+    使用する際は、必ず
+    <a href="https://cors-anywhere.herokuapp.com/" target="_blank">
+      https://cors-anywhere.herokuapp.com/
+    </a>
+    にアクセスしてください
   </p>
-  <p>表示したいURLを入力してください（例: https://example.com）</p>
+  <p>表示したいURLを入力してください（例: https://example.com、https://www.youtube.com、https://www.pornhub.com）</p>
   <form id="urlForm">
     <input type="text" id="urlInput" placeholder="https://example.com" style="width:300px;" required>
     <button type="submit">取得する</button>
@@ -36,18 +39,18 @@
   <div id="result"></div>
 
   <script>
-    // Render にデプロイしたプロキシサーバーのエンドポイント（末尾に ?url= を付与）
-    const proxyUrl = 'https://proxy-q3rg.onrender.com/proxy?url=';
+    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
     const resultDiv = document.getElementById('result');
 
     async function loadPage(url) {
       resultDiv.innerHTML = '取得中...';
       try {
-        const response = await fetch(proxyUrl + encodeURIComponent(url));
+        // プロキシ経由でHTMLを取得
+        const response = await fetch(proxyUrl + url);
         if (!response.ok) throw new Error('ネットワークエラーです');
         let htmlText = await response.text();
 
-        // 相対URLの解決用に、取得した HTML 内の head に <base> タグを追加
+        // 相対URLを正しく解決するため、head内に<base>タグを挿入
         const baseUrl = new URL(url);
         const baseTag = '<base href="' + baseUrl.href + '">';
         if (htmlText.match(/<head[^>]*>/i)) {
@@ -56,7 +59,7 @@
           htmlText = '<head>' + baseTag + '</head>' + htmlText;
         }
 
-        // iframe を作成し、取得した HTML を読み込む
+        // iframeを作成し、取得したHTMLをdocument.writeで読み込む
         const iframe = document.createElement('iframe');
         resultDiv.innerHTML = '';
         resultDiv.appendChild(iframe);
@@ -65,20 +68,21 @@
         iframeDoc.write(htmlText);
         iframeDoc.close();
 
-        // iframe 内のリンクやフォーム送信も横取りしてプロキシ経由にする
+        // iframe内のリンク・フォームの横取り設定
         setupIframeInterception(iframeDoc);
       } catch (err) {
         resultDiv.textContent = 'エラーが発生しました: ' + err.message;
       }
     }
 
-    // iframe 内のリンクやフォーム送信を横取りする処理
+    // iframe内のリンクやフォーム送信を横取りして、loadPage経由にする設定
     function setupIframeInterception(doc) {
-      // すべてのリンクの target 属性を削除し、クリック時に loadPage を呼ぶ
+      // すべてのリンクから target 属性を削除し、クリック時に loadPage を呼び出す
       const anchors = doc.querySelectorAll('a');
       anchors.forEach(anchor => {
         anchor.removeAttribute('target');
         anchor.addEventListener('click', function(e) {
+          // クリックイベントを横取り
           e.preventDefault();
           const href = anchor.href;
           if (href) {
@@ -87,7 +91,9 @@
         });
       });
       
-      // GET メソッドのフォーム送信を横取り
+      // もし動的にリンクが追加される可能性がある場合は、イベント委譲で処理する方法も検討してください。
+      
+      // フォーム送信の横取り（GETメソッドのみ対応）
       const forms = doc.querySelectorAll('form');
       forms.forEach(form => {
         form.addEventListener('submit', function(e) {
@@ -102,17 +108,20 @@
             }
             loadPage(action);
           }
-          // POST の場合は追加実装が必要
+          // POSTメソッドの場合は別途処理が必要です
         });
       });
     }
 
-    // フォーム送信で初回ページ読み込み
+    // フォーム送信で初回読み込み
     document.getElementById('urlForm').addEventListener('submit', function(e) {
       e.preventDefault();
       const inputUrl = document.getElementById('urlInput').value;
       loadPage(inputUrl);
     });
+
+    // iframe内のスクリプトからも loadPage を利用できるように公開（必要に応じて）
+    window.loadPage = loadPage;
   </script>
 </body>
 </html>
