@@ -13,7 +13,7 @@
       position: fixed;
       top: 0;
       left: 0;
-      background-color: rgba(255, 255, 255, 0.8);
+      background-color: rgba(255,255,255,0.8);
       padding: 10px;
       z-index: 9999;
       font-size: 14px;
@@ -22,14 +22,15 @@
 </head>
 <body>
   <div id="proxyInterface">
-    <h1>WEB VISION</h1>
+    <h1>WEB VISION v7h1>
     <p>アクセスしたい URL を入力してください：</p>
     <form id="proxyForm">
       <input type="text" id="urlInput" placeholder="https://example.com" required>
       <button type="submit">アクセス</button>
     </form>
     <p>
-      ※ このサービスは外部プロキシ（cors-anywhere）を利用しており、著作権、利用規約、セキュリティリスクにご注意ください。
+      ※ このサービスは外部プロキシ（cors-anywhere）を利用しています。<br>
+      著作権、利用規約、セキュリティリスクに十分ご注意ください。
     </p>
   </div>
 
@@ -37,7 +38,7 @@
   (function proxyMain() {
     // 外部プロキシサービスのURL（利用制限や事前アクセス許可に注意）
     const externalProxy = "https://cors-anywhere.herokuapp.com/";
-    // 自身のプロキシモードURLのベース（GitHub Pages上のURL）
+    // 自身のプロキシモードURLのベース（GitHub Pages 上の URL）
     const baseProxyURL = window.location.origin + window.location.pathname + "?url=";
   
     // URLパラメータ "url" をチェック（プロキシモードか否かを判断）
@@ -48,7 +49,7 @@
       // プロキシモードの場合、対象ページを取得して表示
       fetchContentAndRender(proxiedURL);
     } else {
-      // 初期表示（プロキシインターフェース）: フォーム送信でプロキシモードに移行
+      // 初期表示（プロキシインターフェース）：フォーム送信でプロキシモードに移行
       document.getElementById("proxyForm").addEventListener("submit", function(e) {
         e.preventDefault();
         const url = document.getElementById("urlInput").value;
@@ -67,31 +68,36 @@
           return response.text();
         })
         .then(htmlText => {
-          // 取得した HTML を DOMParser でパース
+          // パースして DOM として扱う
           const parser = new DOMParser();
           const doc = parser.parseFromString(htmlText, "text/html");
-          // <head> 内に <base> タグを追加して相対URLを解決
+  
+          // <base> タグを head の先頭に確実に挿入する
           let head = doc.querySelector("head");
           if (head) {
-            let baseEl = doc.createElement("base");
+            const existingBase = head.querySelector("base");
+            if (existingBase) {
+              existingBase.remove();
+            }
+            const baseEl = doc.createElement("base");
             baseEl.href = url;
-            head.prepend(baseEl);
+            head.insertBefore(baseEl, head.firstChild);
           } else {
-            let newHead = doc.createElement("head");
-            let baseEl = doc.createElement("base");
+            const newHead = doc.createElement("head");
+            const baseEl = doc.createElement("base");
             baseEl.href = url;
             newHead.appendChild(baseEl);
-            doc.documentElement.prepend(newHead);
+            doc.documentElement.insertBefore(newHead, doc.documentElement.firstChild);
           }
   
-          // リンクやリソース（a, img, script, link, iframe）のURLを書き換え
+          // リンク・画像・スクリプト・CSS・iframe の属性を書き換え
           rewriteDocument(doc, url);
-          // このプロキシ処理自体を再注入（以降のナビゲーションもプロキシ経由に）
+          // プロキシ処理のスクリプトを再注入（以降のリンクもプロキシ経由に）
           injectProxyScript(doc);
           // 「プロキシインターフェースに戻る」リンクを挿入
           injectBackLink(doc);
   
-          // 書き換えたドキュメント全体をシリアライズして置き換え
+          // 新しい HTML をシリアライズして、現在のページを置き換える
           const serializer = new XMLSerializer();
           const newHTML = serializer.serializeToString(doc);
           document.open();
@@ -104,7 +110,7 @@
     }
   
     function rewriteDocument(doc, baseUrl) {
-      // 書き換えルール（対象要素と属性）
+      // 書き換えルール：対象要素と属性
       const rules = [
         { selector: "a", attr: "href" },
         { selector: "img", attr: "src" },
@@ -119,15 +125,15 @@
           if (orig) {
             try {
               const absUrl = new URL(orig, baseUrl).toString();
-              // 書き換え後のURLは自身のプロキシモードへ誘導する
+              // 書き換えた URL は常にこのプロキシを通るように
               el.setAttribute(rule.attr, baseProxyURL + encodeURIComponent(absUrl));
             } catch(e) {
-              // 変換できなかった場合はそのままに
+              // 変換できなかった場合はそのまま
             }
           }
         });
       });
-      // GET フォームの action 属性も書き換え（POSTは未対応）
+      // GET メソッドのフォームの action 属性も書き換え（POST は未対応）
       const forms = doc.querySelectorAll("form");
       forms.forEach(form => {
         let action = form.getAttribute("action") || baseUrl;
@@ -140,17 +146,18 @@
   
     function injectProxyScript(doc) {
       const scriptEl = doc.createElement("script");
-      // このスクリプト自体を再注入することで、以降のリンククリックなどもプロキシ処理となる
+      // プロキシ処理全体を再注入する（これにより、以降のリンククリックもプロキシ経由に）
       scriptEl.textContent = "(" + proxyMain.toString() + ")();";
+      // body の最後に追加
       doc.body.appendChild(scriptEl);
     }
   
     function injectBackLink(doc) {
-      // ページ上部に「プロキシインターフェースに戻る」リンクを固定表示する
+      // 「プロキシインターフェースに戻る」リンクを固定表示で追加
       const backDiv = doc.createElement("div");
       backDiv.className = "backLink";
       backDiv.innerHTML = '<a href="' + window.location.origin + window.location.pathname + '">[プロキシインターフェースに戻る]</a>';
-      doc.body.prepend(backDiv);
+      doc.body.insertBefore(backDiv, doc.body.firstChild);
     }
   })();
   </script>
