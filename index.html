@@ -2,57 +2,59 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>全ウェブプロキシ（GitHub Pages版）</title>
+  <title>WEB VISION - 全ウェブプロキシ</title>
   <style>
     body { font-family: sans-serif; margin: 20px; }
     #proxyInterface { margin-bottom: 20px; }
     input[type="text"] { width: 300px; }
     button { padding: 6px 12px; font-size: 14px; }
-    /* バックリンクのスタイル（後で動的に挿入されます） */
+    /* 「プロキシインターフェースに戻る」リンク用スタイル */
     .backLink {
       position: fixed;
       top: 0;
       left: 0;
-      background-color: rgba(255,255,255,0.8);
+      background-color: rgba(255, 255, 255, 0.8);
       padding: 10px;
       z-index: 9999;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
   <div id="proxyInterface">
-    <h1>全ウェブプロキシ</h1>
+    <h1>WEB VISION</h1>
     <p>アクセスしたい URL を入力してください：</p>
     <form id="proxyForm">
       <input type="text" id="urlInput" placeholder="https://example.com" required>
       <button type="submit">アクセス</button>
     </form>
     <p>
-      ※ このサービスは外部プロキシ（cors-anywhere）を利用しています。<br>
-      著作権や利用規約、セキュリティリスクに十分ご注意ください。
+      ※ このサービスは外部プロキシ（cors-anywhere）を利用しており、著作権、利用規約、セキュリティリスクにご注意ください。
     </p>
   </div>
 
   <script>
   (function proxyMain() {
-    // 外部プロキシの URL（利用状況に合わせて変更してください）
+    // 外部プロキシサービスのURL（利用制限や事前アクセス許可に注意）
     const externalProxy = "https://cors-anywhere.herokuapp.com/";
-    // 自身のプロキシインターフェースの URL（GitHub Pages のルート URL）
+    // 自身のプロキシモードURLのベース（GitHub Pages上のURL）
     const baseProxyURL = window.location.origin + window.location.pathname + "?url=";
   
-    // URLパラメータをチェック
+    // URLパラメータ "url" をチェック（プロキシモードか否かを判断）
     const params = new URLSearchParams(window.location.search);
     const proxiedURL = params.get("url");
   
     if (proxiedURL) {
-      // すでに proxied mode の場合は、コンテンツを取得してレンダリングする
+      // プロキシモードの場合、対象ページを取得して表示
       fetchContentAndRender(proxiedURL);
     } else {
-      // プロキシインターフェース表示時：フォーム送信でプロキシモードに移行
+      // 初期表示（プロキシインターフェース）: フォーム送信でプロキシモードに移行
       document.getElementById("proxyForm").addEventListener("submit", function(e) {
         e.preventDefault();
         const url = document.getElementById("urlInput").value;
-        window.location.href = baseProxyURL + encodeURIComponent(url);
+        if(url) {
+          window.location.href = baseProxyURL + encodeURIComponent(url);
+        }
       });
     }
   
@@ -60,39 +62,36 @@
       fetch(externalProxy + url)
         .then(response => {
           if (!response.ok) {
-            throw new Error("ネットワークエラー");
+            throw new Error("ネットワークエラー: " + response.status);
           }
           return response.text();
         })
         .then(htmlText => {
-          // HTMLテキストをパース
+          // 取得した HTML を DOMParser でパース
           const parser = new DOMParser();
           const doc = parser.parseFromString(htmlText, "text/html");
-  
-          // <head> 内に <base> タグを追加（相対パス解決用）
+          // <head> 内に <base> タグを追加して相対URLを解決
           let head = doc.querySelector("head");
           if (head) {
-            const baseEl = doc.createElement("base");
+            let baseEl = doc.createElement("base");
             baseEl.href = url;
             head.prepend(baseEl);
           } else {
-            const newHead = doc.createElement("head");
-            const baseEl = doc.createElement("base");
+            let newHead = doc.createElement("head");
+            let baseEl = doc.createElement("base");
             baseEl.href = url;
             newHead.appendChild(baseEl);
             doc.documentElement.prepend(newHead);
           }
   
-          // リンクやリソースの URL を書き換える
+          // リンクやリソース（a, img, script, link, iframe）のURLを書き換え
           rewriteDocument(doc, url);
-  
-          // 次回以降もこのプロキシ処理が有効になるようにスクリプトを注入
+          // このプロキシ処理自体を再注入（以降のナビゲーションもプロキシ経由に）
           injectProxyScript(doc);
-  
-          // プロキシインターフェースに戻るためのリンクを挿入
+          // 「プロキシインターフェースに戻る」リンクを挿入
           injectBackLink(doc);
   
-          // 新たな HTML をシリアライズして、ドキュメント全体を置き換え
+          // 書き換えたドキュメント全体をシリアライズして置き換え
           const serializer = new XMLSerializer();
           const newHTML = serializer.serializeToString(doc);
           document.open();
@@ -105,6 +104,7 @@
     }
   
     function rewriteDocument(doc, baseUrl) {
+      // 書き換えルール（対象要素と属性）
       const rules = [
         { selector: "a", attr: "href" },
         { selector: "img", attr: "src" },
@@ -119,37 +119,34 @@
           if (orig) {
             try {
               const absUrl = new URL(orig, baseUrl).toString();
+              // 書き換え後のURLは自身のプロキシモードへ誘導する
               el.setAttribute(rule.attr, baseProxyURL + encodeURIComponent(absUrl));
-            } catch (e) {
-              // 変換できなかった場合はそのまま
+            } catch(e) {
+              // 変換できなかった場合はそのままに
             }
           }
         });
       });
-      // GET フォームの action 属性も書き換え
+      // GET フォームの action 属性も書き換え（POSTは未対応）
       const forms = doc.querySelectorAll("form");
       forms.forEach(form => {
         let action = form.getAttribute("action") || baseUrl;
         try {
           const absUrl = new URL(action, baseUrl).toString();
           form.setAttribute("action", baseProxyURL + encodeURIComponent(absUrl));
-        } catch (e) {
-          // そのまま
-        }
+        } catch(e) {}
       });
     }
   
     function injectProxyScript(doc) {
-      // 本来のスクリプト（このプロキシ処理全体）を再注入して、リンククリック時に再度プロキシ経由になるようにする
       const scriptEl = doc.createElement("script");
-      // ※ 簡略化のため、ここではこのスクリプトファイル全体（proxyMain 関数）を文字列化して注入しています
-      //     必要に応じて最小限の処理に絞ってください
+      // このスクリプト自体を再注入することで、以降のリンククリックなどもプロキシ処理となる
       scriptEl.textContent = "(" + proxyMain.toString() + ")();";
       doc.body.appendChild(scriptEl);
     }
   
     function injectBackLink(doc) {
-      // 「プロキシインターフェースに戻る」リンクを固定表示で追加
+      // ページ上部に「プロキシインターフェースに戻る」リンクを固定表示する
       const backDiv = doc.createElement("div");
       backDiv.className = "backLink";
       backDiv.innerHTML = '<a href="' + window.location.origin + window.location.pathname + '">[プロキシインターフェースに戻る]</a>';
