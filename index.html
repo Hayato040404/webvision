@@ -2,131 +2,160 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>WEB VISION V6</title>
+  <title>全ウェブプロキシ（GitHub Pages版）</title>
   <style>
-    body {
-      font-family: sans-serif;
-    }
-    #result {
-      margin-top: 20px;
-    }
-    iframe {
-      border: 1px solid #ccc;
-      width: 100%;
-      height: 80vh;
-    }
-    .notice {
-      color: red;
-      font-weight: bold;
-      margin-bottom: 10px;
+    body { font-family: sans-serif; margin: 20px; }
+    #proxyInterface { margin-bottom: 20px; }
+    input[type="text"] { width: 300px; }
+    button { padding: 6px 12px; font-size: 14px; }
+    /* バックリンクのスタイル（後で動的に挿入されます） */
+    .backLink {
+      position: fixed;
+      top: 0;
+      left: 0;
+      background-color: rgba(255,255,255,0.8);
+      padding: 10px;
+      z-index: 9999;
     }
   </style>
 </head>
 <body>
-  <h1>URLプレビュー</h1>
-  <p class="notice">
-    使用する際は、必ず
-    <a href="https://cors-anywhere.herokuapp.com/" target="_blank">
-      https://cors-anywhere.herokuapp.com/
-    </a>
-    にアクセスしてください
-
-    また、<a href="https://proxy-q3rg.onrender.com/" target="_blank">
-      こちら
-    </a>
-      が、上位互換サイトです。自前のプロキシサーバーを利用しています。
-  </p>
-  <p>表示したいURLを入力してください（例: https://example.com、https://www.youtube.com、https://www.pornhub.com）</p>
-  <form id="urlForm">
-    <input type="text" id="urlInput" placeholder="https://example.com" style="width:300px;" required>
-    <button type="submit">取得する</button>
-  </form>
-  <div id="result"></div>
+  <div id="proxyInterface">
+    <h1>全ウェブプロキシ</h1>
+    <p>アクセスしたい URL を入力してください：</p>
+    <form id="proxyForm">
+      <input type="text" id="urlInput" placeholder="https://example.com" required>
+      <button type="submit">アクセス</button>
+    </form>
+    <p>
+      ※ このサービスは外部プロキシ（cors-anywhere）を利用しています。<br>
+      著作権や利用規約、セキュリティリスクに十分ご注意ください。
+    </p>
+  </div>
 
   <script>
-    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    const resultDiv = document.getElementById('result');
-
-    async function loadPage(url) {
-      resultDiv.innerHTML = '取得中...';
-      try {
-        // プロキシ経由でHTMLを取得
-        const response = await fetch(proxyUrl + url);
-        if (!response.ok) throw new Error('ネットワークエラーです');
-        let htmlText = await response.text();
-
-        // 相対URLを正しく解決するため、head内に<base>タグを挿入
-        const baseUrl = new URL(url);
-        const baseTag = '<base href="' + baseUrl.href + '">';
-        if (htmlText.match(/<head[^>]*>/i)) {
-          htmlText = htmlText.replace(/<head([^>]*)>/i, '<head$1>' + baseTag);
-        } else {
-          htmlText = '<head>' + baseTag + '</head>' + htmlText;
-        }
-
-        // iframeを作成し、取得したHTMLをdocument.writeで読み込む
-        const iframe = document.createElement('iframe');
-        resultDiv.innerHTML = '';
-        resultDiv.appendChild(iframe);
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-        iframeDoc.open();
-        iframeDoc.write(htmlText);
-        iframeDoc.close();
-
-        // iframe内のリンク・フォームの横取り設定
-        setupIframeInterception(iframeDoc);
-      } catch (err) {
-        resultDiv.textContent = 'エラーが発生しました: ' + err.message;
-      }
-    }
-
-    // iframe内のリンクやフォーム送信を横取りして、loadPage経由にする設定
-    function setupIframeInterception(doc) {
-      // すべてのリンクから target 属性を削除し、クリック時に loadPage を呼び出す
-      const anchors = doc.querySelectorAll('a');
-      anchors.forEach(anchor => {
-        anchor.removeAttribute('target');
-        anchor.addEventListener('click', function(e) {
-          // クリックイベントを横取り
-          e.preventDefault();
-          const href = anchor.href;
-          if (href) {
-            loadPage(href);
-          }
-        });
+  (function proxyMain() {
+    // 外部プロキシの URL（利用状況に合わせて変更してください）
+    const externalProxy = "https://cors-anywhere.herokuapp.com/";
+    // 自身のプロキシインターフェースの URL（GitHub Pages のルート URL）
+    const baseProxyURL = window.location.origin + window.location.pathname + "?url=";
+  
+    // URLパラメータをチェック
+    const params = new URLSearchParams(window.location.search);
+    const proxiedURL = params.get("url");
+  
+    if (proxiedURL) {
+      // すでに proxied mode の場合は、コンテンツを取得してレンダリングする
+      fetchContentAndRender(proxiedURL);
+    } else {
+      // プロキシインターフェース表示時：フォーム送信でプロキシモードに移行
+      document.getElementById("proxyForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const url = document.getElementById("urlInput").value;
+        window.location.href = baseProxyURL + encodeURIComponent(url);
       });
-      
-      // もし動的にリンクが追加される可能性がある場合は、イベント委譲で処理する方法も検討してください。
-      
-      // フォーム送信の横取り（GETメソッドのみ対応）
-      const forms = doc.querySelectorAll('form');
-      forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
-          e.preventDefault();
-          let action = form.action || doc.location.href;
-          const method = (form.method || 'get').toLowerCase();
-          if (method === 'get') {
-            const formData = new FormData(form);
-            const queryString = new URLSearchParams(formData).toString();
-            if (queryString) {
-              action += (action.includes('?') ? '&' : '?') + queryString;
+    }
+  
+    function fetchContentAndRender(url) {
+      fetch(externalProxy + url)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("ネットワークエラー");
+          }
+          return response.text();
+        })
+        .then(htmlText => {
+          // HTMLテキストをパース
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlText, "text/html");
+  
+          // <head> 内に <base> タグを追加（相対パス解決用）
+          let head = doc.querySelector("head");
+          if (head) {
+            const baseEl = doc.createElement("base");
+            baseEl.href = url;
+            head.prepend(baseEl);
+          } else {
+            const newHead = doc.createElement("head");
+            const baseEl = doc.createElement("base");
+            baseEl.href = url;
+            newHead.appendChild(baseEl);
+            doc.documentElement.prepend(newHead);
+          }
+  
+          // リンクやリソースの URL を書き換える
+          rewriteDocument(doc, url);
+  
+          // 次回以降もこのプロキシ処理が有効になるようにスクリプトを注入
+          injectProxyScript(doc);
+  
+          // プロキシインターフェースに戻るためのリンクを挿入
+          injectBackLink(doc);
+  
+          // 新たな HTML をシリアライズして、ドキュメント全体を置き換え
+          const serializer = new XMLSerializer();
+          const newHTML = serializer.serializeToString(doc);
+          document.open();
+          document.write(newHTML);
+          document.close();
+        })
+        .catch(err => {
+          document.body.innerHTML = "<p>エラー: " + err.message + "</p>";
+        });
+    }
+  
+    function rewriteDocument(doc, baseUrl) {
+      const rules = [
+        { selector: "a", attr: "href" },
+        { selector: "img", attr: "src" },
+        { selector: "script", attr: "src" },
+        { selector: "link", attr: "href" },
+        { selector: "iframe", attr: "src" }
+      ];
+      rules.forEach(rule => {
+        const elements = doc.querySelectorAll(rule.selector);
+        elements.forEach(el => {
+          const orig = el.getAttribute(rule.attr);
+          if (orig) {
+            try {
+              const absUrl = new URL(orig, baseUrl).toString();
+              el.setAttribute(rule.attr, baseProxyURL + encodeURIComponent(absUrl));
+            } catch (e) {
+              // 変換できなかった場合はそのまま
             }
-            loadPage(action);
           }
-          // POSTメソッドの場合は別途処理が必要です
         });
       });
+      // GET フォームの action 属性も書き換え
+      const forms = doc.querySelectorAll("form");
+      forms.forEach(form => {
+        let action = form.getAttribute("action") || baseUrl;
+        try {
+          const absUrl = new URL(action, baseUrl).toString();
+          form.setAttribute("action", baseProxyURL + encodeURIComponent(absUrl));
+        } catch (e) {
+          // そのまま
+        }
+      });
     }
-
-    // フォーム送信で初回読み込み
-    document.getElementById('urlForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const inputUrl = document.getElementById('urlInput').value;
-      loadPage(inputUrl);
-    });
-
-    // iframe内のスクリプトからも loadPage を利用できるように公開（必要に応じて）
-    window.loadPage = loadPage;
+  
+    function injectProxyScript(doc) {
+      // 本来のスクリプト（このプロキシ処理全体）を再注入して、リンククリック時に再度プロキシ経由になるようにする
+      const scriptEl = doc.createElement("script");
+      // ※ 簡略化のため、ここではこのスクリプトファイル全体（proxyMain 関数）を文字列化して注入しています
+      //     必要に応じて最小限の処理に絞ってください
+      scriptEl.textContent = "(" + proxyMain.toString() + ")();";
+      doc.body.appendChild(scriptEl);
+    }
+  
+    function injectBackLink(doc) {
+      // 「プロキシインターフェースに戻る」リンクを固定表示で追加
+      const backDiv = doc.createElement("div");
+      backDiv.className = "backLink";
+      backDiv.innerHTML = '<a href="' + window.location.origin + window.location.pathname + '">[プロキシインターフェースに戻る]</a>';
+      doc.body.prepend(backDiv);
+    }
+  })();
   </script>
 </body>
 </html>
