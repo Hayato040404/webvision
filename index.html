@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>WEB VISION - シンプル表示</title>
+  <title>WEB VISION - CORS Anywhere 利用版</title>
   <style>
     body { 
       font-family: sans-serif; 
@@ -11,7 +11,7 @@
     input[type="text"] { 
       width: 300px; 
       padding: 6px; 
-      font-size: 14px;
+      font-size: 14px; 
     }
     button { 
       padding: 6px 12px; 
@@ -28,12 +28,12 @@
       <button type="submit">表示</button>
     </form>
     <p>
-      ※ この方法は、対象サイトが CORS などの制約を設けていない場合にのみ動作します。
+      ※ この方式は、cors-anywhere (https://cors-anywhere.herokuapp.com/) を利用して CORS 制約を回避し、写真・動画などのリソースも正しく表示できるようにしています。
     </p>
   </div>
 
   <script>
-    // URL パラメータ "url" があるかチェック
+    // URL パラメータ "url" の有無をチェック
     const params = new URLSearchParams(window.location.search);
     const targetUrl = params.get("url");
 
@@ -41,8 +41,9 @@
       // URL 指定がある場合、取得中のメッセージを表示
       document.body.innerHTML = "<p>取得中...</p>";
 
-      // 指定 URL のコンテンツを fetch() で取得して、document.write() で置き換え
-      fetch(targetUrl)
+      // cors-anywhere を利用して対象 URL のコンテンツを取得
+      const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+      fetch(proxyUrl + targetUrl)
         .then(response => {
           if (!response.ok) {
             throw new Error("ネットワークエラー: " + response.status);
@@ -50,7 +51,13 @@
           return response.text();
         })
         .then(htmlText => {
-          // 取得したコンテンツで現在のドキュメントを置き換え
+          // 取得した HTML 内に <base> タグを挿入して相対パスの解決をサポート
+          if (htmlText.match(/<head[^>]*>/i)) {
+            htmlText = htmlText.replace(/<head([^>]*)>/i, `<head$1><base href="${targetUrl}">`);
+          } else {
+            htmlText = `<head><base href="${targetUrl}"></head>` + htmlText;
+          }
+          // 取得した HTML で現在のドキュメントを置き換え
           document.open();
           document.write(htmlText);
           document.close();
@@ -59,7 +66,7 @@
           document.body.innerHTML = "<p>エラー: " + err.message + "</p>";
         });
     } else {
-      // 初期画面：URL入力フォームの処理
+      // 初期画面：URL 入力フォームの処理
       document.getElementById("urlForm").addEventListener("submit", function(e) {
         e.preventDefault();
         const url = document.getElementById("urlInput").value;
