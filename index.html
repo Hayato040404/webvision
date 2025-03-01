@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>WEB VISION - CORS Anywhere 利用版</title>
+  <title>WEB VISION - ハイブリッド表示</title>
   <style>
     body { 
       font-family: sans-serif; 
@@ -22,55 +22,80 @@
 <body>
   <div id="interface">
     <h1>WEB VISION</h1>
-    <p>表示したい URL を入力してください：</p>
+    <a href="https://cors-anywhere.herokuapp.com/">こちらにアクセスしてください</a>
+    <p>表示したい URL を入力してください（YouTube URLの場合は iframe で埋め込み表示されます）　：</p>
     <form id="urlForm">
-      <input type="text" id="urlInput" placeholder="https://example.com" required>
+      <input type="text" id="urlInput" placeholder="https://example.com または YouTube URL" required>
       <button type="submit">表示</button>
     </form>
     <p>
-      ※ この方式は、cors-anywhere (https://cors-anywhere.herokuapp.com/) を利用して CORS 制約を回避し、写真・動画などのリソースも正しく表示できるようにしています。
+      ※ YouTube の場合は iframe を利用し、その他は cors-anywhere を使ってコンテンツを取得します。
     </p>
   </div>
 
   <script>
-    // URL パラメータ "url" の有無をチェック
     const params = new URLSearchParams(window.location.search);
     const targetUrl = params.get("url");
 
     if (targetUrl) {
-      // URL 指定がある場合、取得中のメッセージを表示
-      document.body.innerHTML = "<p>取得中...</p>";
-
-      // cors-anywhere を利用して対象 URL のコンテンツを取得
-      const proxyUrl = "https://cors-anywhere.herokuapp.com/";
-      fetch(proxyUrl + targetUrl)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error("ネットワークエラー: " + response.status);
+      // YouTube URL かどうかを判定
+      if (targetUrl.includes("youtube.com") || targetUrl.includes("youtu.be")) {
+        let videoId = "";
+        // youtube.com の場合 (例: https://www.youtube.com/watch?v=VIDEOID)
+        const ytMatch = targetUrl.match(/[?&]v=([^&#]+)/);
+        if (ytMatch && ytMatch[1]) {
+          videoId = ytMatch[1];
+        } else {
+          // youtu.be の場合 (例: https://youtu.be/VIDEOID)
+          const ytShortMatch = targetUrl.match(/youtu\.be\/([^&#]+)/);
+          if (ytShortMatch && ytShortMatch[1]) {
+            videoId = ytShortMatch[1];
           }
-          return response.text();
-        })
-        .then(htmlText => {
-          // 取得した HTML 内に <base> タグを挿入して相対パスの解決をサポート
-          if (htmlText.match(/<head[^>]*>/i)) {
-            htmlText = htmlText.replace(/<head([^>]*)>/i, `<head$1><base href="${targetUrl}">`);
-          } else {
-            htmlText = `<head><base href="${targetUrl}"></head>` + htmlText;
-          }
-          // 取得した HTML で現在のドキュメントを置き換え
-          document.open();
-          document.write(htmlText);
-          document.close();
-        })
-        .catch(err => {
-          document.body.innerHTML = "<p>エラー: " + err.message + "</p>";
-        });
+        }
+        if (videoId) {
+          // iframe 埋め込みで表示
+          document.body.innerHTML = `
+            <iframe width="560" height="315" 
+              src="https://www.youtube.com/embed/${videoId}" 
+              frameborder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowfullscreen>
+            </iframe>
+          `;
+        } else {
+          document.body.innerHTML = "<p>無効なYouTube URLです。</p>";
+        }
+      } else {
+        // YouTube 以外は cors-anywhere 経由で取得して表示
+        document.body.innerHTML = "<p>取得中...</p>";
+        const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+        fetch(proxyUrl + targetUrl)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error("ネットワークエラー: " + response.status);
+            }
+            return response.text();
+          })
+          .then(htmlText => {
+            // <base> タグを head 内に挿入して相対パス解決をサポート
+            if (htmlText.match(/<head[^>]*>/i)) {
+              htmlText = htmlText.replace(/<head([^>]*)>/i, `<head$1><base href="${targetUrl}">`);
+            } else {
+              htmlText = `<head><base href="${targetUrl}"></head>` + htmlText;
+            }
+            document.open();
+            document.write(htmlText);
+            document.close();
+          })
+          .catch(err => {
+            document.body.innerHTML = "<p>エラー: " + err.message + "</p>";
+          });
+      }
     } else {
-      // 初期画面：URL 入力フォームの処理
+      // 初期表示：URL 入力フォームの処理
       document.getElementById("urlForm").addEventListener("submit", function(e) {
         e.preventDefault();
         const url = document.getElementById("urlInput").value;
-        // 同一ページに URL パラメータを付与してリダイレクト
         window.location.href = window.location.pathname + "?url=" + encodeURIComponent(url);
       });
     }
