@@ -83,12 +83,6 @@
             return response.text();
           })
           .then(htmlText => {
-            // <base> タグを head 内に挿入して相対パス解決をサポート
-            if (htmlText.match(/<head[^>]*>/i)) {
-              htmlText = htmlText.replace(/<head([^>]*)>/i, `<head$1><base href="${targetUrl}">`);
-            } else {
-              htmlText = `<head><base href="${targetUrl}"></head>` + htmlText;
-            }
             document.open();
             document.write(htmlText);
             document.close();
