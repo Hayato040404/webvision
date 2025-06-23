@@ -2,312 +2,125 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WEB VISION - ハイブリッド表示</title>
+  <title>unknow</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    body { 
+      font-family: sans-serif; 
+      margin: 20px; 
     }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background-color: var(--bg-color, #f5f5f5);
-      color: var(--text-color, #333);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      margin: 0;
-      transition: background-color 0.3s, color 0.3s;
+    input[type="text"] { 
+      width: 300px; 
+      padding: 6px; 
+      font-size: 14px; 
     }
-    .navbar {
-      background-color: var(--navbar-bg, #fff);
-      border-bottom: 1px solid var(--border-color, #ddd);
-      padding: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    .navbar button {
-      padding: 8px;
-      font-size: 14px;
-      border: none;
-      background: var(--button-bg, #f0f0f0);
-      border-radius: 50%;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
-      position: relative;
-    }
-    .navbar button:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #333;
-      color: #fff;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      white-space: nowrap;
-      z-index: 10;
-    }
-    .navbar button:active {
-      transform: scale(0.95);
-    }
-    .navbar .load-button {
-      border-radius: 4px;
-      background: #007bff;
-      color: #fff;
-      padding: 8px 16px;
-    }
-    .navbar input[type="text"] {
-      flex: 1;
-      padding: 8px 16px;
-      font-size: 14px;
-      border: 1px solid var(--border-color, #ddd);
-      border-radius: 20px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .navbar input[type="text"]:focus {
-      border-color: #007bff;
-      box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
-    }
-    #content {
-      flex: 1;
-      overflow: auto;
-      padding: 10px;
-      position: relative;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    .error {
-      color: #d32f2f;
-      text-align: center;
-      padding: 20px;
-      background: #ffebee;
-      border-radius: 8px;
-      margin: 10px;
-    }
-    .loading {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 16px;
-      color: #007bff;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      0% { transform: translate(-50%, -50%) rotate(0deg); }
-      100% { transform: translate(-50%, -50%) rotate(360deg); }
-    }
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      justify-content: center;
-      align-items: center;
-      z-index: 100;
-    }
-    .modal-content {
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      text-align: center;
-      max-width: 400px;
-      width: 90%;
-    }
-    .modal-content button {
-      margin-top: 10px;
-      padding: 8px 16px;
-      background: #007bff;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    /* ダークモード */
-    body.dark-mode {
-      --bg-color: #1a1a1a;
-      --text-color: #e0e0e0;
-      --navbar-bg: #2c2c2c;
-      --border-color: #444;
-      --button-bg: #444;
-    }
-    /* レスポンシブデザイン */
-    @media (max-width: 600px) {
-      .navbar {
-        flex-wrap: wrap;
-        gap: 5px;
-        padding: 8px;
-      }
-      .navbar button {
-        padding: 6px;
-        font-size: 12px;
-      }
-      .navbar .load-button {
-        padding: 6px 12px;
-        font-size: 12px;
-      }
-      .navbar input[type="text"] {
-        font-size: 12px;
-        padding: 6px 12px;
-      }
-      .modal-content {
-        width: 95%;
-      }
+    button { 
+      padding: 6px 12px; 
+      font-size: 14px; 
     }
   </style>
 </head>
 <body>
-  <div class="navbar">
-    <button data-tooltip="戻る" onclick="history.back()">←</button>
-    <button data-tooltip="進む" onclick="history.forward()">→</button>
-    <button data-tooltip="リフレッシュ" onclick="window.location.reload()">↻</button>
-    <button data-tooltip="テーマ切替" onclick="toggleTheme()">🌙</button>
-    <form id="urlForm" style="flex: 1; display: flex; gap: 8px;">
-      <input type="text" id="urlInput" placeholder="https://example.com または YouTube URL" required list="urlHistory">
-      <datalist id="urlHistory"></datalist>
-      <button type="submit" class="load-button" data-tooltip="読み込む">読み込む</button>
-    </form>
-  </div>
-  <div id="content">
-    <div class="loading">⏳ 読み込み中...</div>
+  <!-- admax -->
+  <script src="https://adm.shinobi.jp/s/15bb2ead0af651b7532012ea1dd1340c"></script>
+  <!-- admax -->
+  <!-- admax -->
+  <script src="https://adm.shinobi.jp/s/3cf251fb670bdd987ddfc9de8597d99a"></script>
+  <!-- admax -->
+  <div id="interface" style="display:none;">
     <h1>WEB VISION</h1>
-    <p>表示したい URL を入力してください（YouTube URLの場合は iframe で埋め込み表示されます）：</p>
-    <p>※ YouTube の場合は iframe を利用し、その他はプロキシサーバー経由で表示します。</p>
+    <a href="https://cors-anywhere.herokuapp.com/">こちらにアクセスしてください</a>
+    <p>表示したい URL を入力してください（YouTube URLの場合は iframe で埋め込み表示されます）　：</p>
+    <form id="urlForm">
+      <input type="text" id="urlInput" placeholder="https://example.com または YouTube URL" required>
+      <button type="submit">表示</button>
+    </form>
+    <p>
+     
+    </p>
   </div>
-  <div class="modal" id="errorModal">
-    <div class="modal-content">
-      <p id="errorMessage"></p>
-      <button onclick="closeModal()">閉じる</button>
-    </div>
-  </div>
+  <div id="result"></div>
 
   <script>
-    const contentDiv = document.getElementById("content");
-    const urlForm = document.getElementById("urlForm");
-    const urlInput = document.getElementById("urlInput");
-    const loading = document.querySelector(".loading");
-    const errorModal = document.getElementById("errorModal");
-    const errorMessage = document.getElementById("errorMessage");
-    const proxyUrl = "https://no-cros.vercel.app/api/proxy?url="; // 提供されたプロキシURL
-
-    // URL履歴の管理
-    const urlHistory = JSON.parse(localStorage.getItem("urlHistory") || "[]");
-    const updateHistory = () => {
-      const datalist = document.getElementById("urlHistory");
-      datalist.innerHTML = urlHistory.map(url => `<option value="${url}">`).join("");
-    };
-    updateHistory();
-
-    // テーマ切り替え
-    function toggleTheme() {
-      document.body.classList.toggle("dark-mode");
-      localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
-    }
-    if (localStorage.getItem("theme") === "dark") {
-      document.body.classList.add("dark-mode");
-    }
-
-    // モーダル操作
-    function showModal(message) {
-      errorMessage.textContent = message;
-      errorModal.style.display = "flex";
-    }
-    function closeModal() {
-      errorModal.style.display = "none";
-    }
-
-    function sanitizeUrl(url) {
-      if (!url.match(/^https?:\/\//)) {
-        return "https://" + url;
+    // ログインダイアログ
+    function login() {
+      let password = prompt("パスワードを入力してください:", "");
+      if (password === null) {
+        // キャンセル
+        document.body.innerHTML = "<p>認証がキャンセルされました。</p>";
+        return false;
       }
-      return url;
+      if (password === "1") {
+        document.getElementById("interface").style.display = "";
+        return true;
+      } else {
+        alert("パスワードが違います。");
+        location.reload();
+        return false;
+      }
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const targetUrl = params.get("url");
+    // ページ読み込み時にログイン必須
+    window.onload = function() {
+      login();
+    };
 
-    if (targetUrl) {
-      const sanitizedUrl = sanitizeUrl(targetUrl);
-      loading.style.display = "block";
-      if (sanitizedUrl.includes("youtube.com") || sanitizedUrl.includes("youtu.be")) {
+    // URLクエリから取得しない方式に修正
+    document.getElementById("urlForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const url = document.getElementById("urlInput").value;
+      displayTargetUrl(url);
+    });
+
+    function displayTargetUrl(targetUrl) {
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = ""; // 毎回クリア
+
+      // YouTube URL かどうかを判定
+      if (targetUrl.includes("youtube.com") || targetUrl.includes("youtu.be")) {
         let videoId = "";
-        const ytMatch = sanitizedUrl.match(/[?&]v=([^&#]+)/);
+        // youtube.com の場合 (例: https://www.youtube.com/watch?v=VIDEOID)
+        const ytMatch = targetUrl.match(/[?&]v=([^&#]+)/);
         if (ytMatch && ytMatch[1]) {
           videoId = ytMatch[1];
         } else {
-          const ytShortMatch = sanitizedUrl.match(/youtu\.be\/([^&#]+)/);
+          // youtu.be の場合 (例: https://youtu.be/VIDEOID)
+          const ytShortMatch = targetUrl.match(/youtu\.be\/([^&#]+)/);
           if (ytShortMatch && ytShortMatch[1]) {
             videoId = ytShortMatch[1];
           }
         }
         if (videoId) {
-          contentDiv.innerHTML = `
-            <iframe src="https://www.youtube.com/embed/${videoId}" 
+          // iframe 埋め込みで表示
+          resultDiv.innerHTML = `
+            <iframe width="560" height="315" 
+              src="https://www.youtube.com/embed/${videoId}" 
               frameborder="0" 
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
               allowfullscreen>
             </iframe>
           `;
-          loading.style.display = "none";
         } else {
-          loading.style.display = "none";
-          showModal("無効なYouTube URLです。");
+          resultDiv.innerHTML = "<p>無効なYouTube URLです。</p>";
         }
       } else {
-        fetch(`${proxyUrl}${encodeURIComponent(sanitizedUrl)}`, {
-          headers: { 'Accept': 'text/html' }
-        })
+        // YouTube 以外は cors-anywhere 経由で取得して表示
+        resultDiv.innerHTML = "<p>取得中...</p>";
+        const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+        fetch(proxyUrl + targetUrl)
           .then(response => {
             if (!response.ok) {
-              throw new Error(`ネットワークエラー: ${response.status}`);
+              throw new Error("ネットワークエラー: " + response.status);
             }
             return response.text();
           })
           .then(htmlText => {
-            if (htmlText.match(/<head[^>]*>/i)) {
-              htmlText = htmlText.replace(/<head([^>]*)>/i, `<head$1><base href="${sanitizedUrl}">`);
-            } else {
-              htmlText = `<head><base href="${sanitizedUrl}"></head>` + htmlText;
-            }
-            contentDiv.innerHTML = "";
-            document.open();
-            document.write(htmlText);
-            document.close();
-            loading.style.display = "none";
+            resultDiv.innerHTML = htmlText;
           })
           .catch(err => {
-            loading.style.display = "none";
-            showModal(`エラー: ${err.message}`);
+            resultDiv.innerHTML = "<p>エラー: " + err.message + "</p>";
           });
       }
-      // URL履歴に追加
-      if (!urlHistory.includes(sanitizedUrl)) {
-        urlHistory.unshift(sanitizedUrl);
-        if (urlHistory.length > 10) urlHistory.pop();
-        localStorage.setItem("urlHistory", JSON.stringify(urlHistory));
-        updateHistory();
-      }
     }
-
-    urlForm.addEventListener("submit", function(e) {
-      e.preventDefault();
-      const url = sanitizeUrl(urlInput.value);
-      window.location.href = window.location.pathname + "?url=" + encodeURIComponent(url);
-    });
   </script>
 </body>
 </html>
