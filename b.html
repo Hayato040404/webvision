@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>unknow</title>
+  <title>WEB VISION</title>
   <style>
     html, body {
       height: 100%;
@@ -92,13 +92,14 @@
 <body>
   <div id="interface" style="display:none;">
     <h1>WEB VISION</h1>
-    <p>表示したいURLを入力してください（YouTubeなら埋め込み、他は<b>自作プロキシ</b>で表示）:</p>
+    <p>表示したいURLを入力してください（YouTubeなら埋め込み、他は<b>CORS Anywhere</b>プロキシで表示）:</p>
     <form id="urlForm" autocomplete="off">
       <input type="text" id="urlInput" placeholder="https://example.com または YouTube URL" required>
       <button type="submit">表示</button>
     </form>
     <p style="font-size:0.95em;color:#666;">
-      ※YouTubeはiframe、その他は <a href="https://proxy-bay-gamma-75.vercel.app/" target="_blank">自作プロキシ</a> 経由で表示します。
+      ※YouTubeはiframe、その他は <a href="https://cors-anywhere.herokuapp.com/" target="_blank">CORS Anywhere</a> 経由で表示します。<br>
+      ※CORS Anywhereは最初にアクセス許可ボタンを押す必要がある場合があります。
     </p>
   </div>
   <div id="result"></div>
@@ -218,11 +219,14 @@
         }
       }
 
-      // 自作プロキシで取得
-      const proxyBase = "https://proxy-bay-gamma-75.vercel.app/api/";
-      // Vercelプロキシは /https://example.com/ のようにスラッシュ直結で指定
-      const proxyUrl = proxyBase + encodeURIComponent(url);
-      fetch(proxyUrl)
+      // CORS Anywhereプロキシ経由で取得
+      const proxyBase = "https://cors-anywhere.herokuapp.com/";
+      const proxyUrl = proxyBase + url;
+      fetch(proxyUrl, {
+        headers: {
+          'Origin': location.origin
+        }
+      })
         .then(response => {
           if (!response.ok) {
             throw new Error("ネットワークエラー: " + response.status);
@@ -247,6 +251,30 @@
           // iframeでサンドボックス表示
           resultDiv.innerHTML =
             `<iframe id="siteFrame" srcdoc="${escapeHtmlForSrcdoc(htmlWithBase)}" style="width:100vw;height:100vh;display:block;border:none;background:#fff;" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>`;
+        
+          // --- ここからリンクの書き換え ---
+          setTimeout(() => {
+            const iframe = document.getElementById('siteFrame');
+            if (!iframe || !iframe.contentDocument) return;
+            const links = iframe.contentDocument.querySelectorAll('a[href]');
+            links.forEach(link => {
+              let original = link.getAttribute('href');
+              // fragmentやmailto, javascript等は除外
+              if (!original || original.startsWith('#') || original.startsWith('mailto:') || original.startsWith('javascript:')) return;
+
+              // 絶対パス化
+              let absUrl;
+              try {
+                absUrl = new URL(original, baseHref).href;
+              } catch {
+                absUrl = original;
+              }
+              // cors-anywhere経由に変換
+              link.setAttribute('href', proxyBase + absUrl);
+              link.setAttribute('target', '_self');
+            });
+          }, 600); // srcdoc描画後に実行（遅延必要）
+          // --- ここまで ---
         })
         .catch(err => {
           resultDiv.innerHTML = `<div style="color:#fff;text-align:center;padding:40px;">エラー: ${err.message}<br><br>
