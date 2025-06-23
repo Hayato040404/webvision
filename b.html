@@ -4,48 +4,115 @@
   <meta charset="UTF-8">
   <title>unknow</title>
   <style>
-    body { 
-      font-family: sans-serif; 
-      margin: 20px; 
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      background: #f6f8fa;
     }
-    input[type="text"] { 
-      width: 300px; 
-      padding: 6px; 
-      font-size: 14px; 
+    #interface {
+      margin: 24px auto 0 auto;
+      padding: 32px 24px;
+      max-width: 480px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px #0001;
+      text-align: center;
+      position: relative;
+      z-index: 2;
     }
-    button { 
-      padding: 6px 12px; 
-      font-size: 14px; 
+    #urlInput {
+      width: 80%;
+      max-width: 350px;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      margin-bottom: 12px;
+    }
+    button {
+      padding: 8px 20px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: none;
+      background: #0070f3;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:active {
+      filter: brightness(0.94);
+    }
+    #result {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: #222;
+      display: none;
+    }
+    #result.fullscreen {
+      display: block;
+    }
+    #toolbar {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 3;
+      display: flex;
+      gap: 10px;
+    }
+    #toolbar button {
+      background: #fff;
+      color: #222;
+      border: 1px solid #aaa;
+      box-shadow: 0 1px 4px #0002;
+      font-size: 1rem;
+      padding: 5px 12px;
+    }
+    #toolbar button:hover {
+      background: #0070f3;
+      color: #fff;
+    }
+    @media (max-width: 600px) {
+      #interface {
+        max-width: 98vw;
+        padding: 12px 2vw;
+      }
+      #urlInput {
+        width: 96%;
+        font-size: 0.95rem;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- admax -->
-  <script src="https://adm.shinobi.jp/s/15bb2ead0af651b7532012ea1dd1340c"></script>
-  <!-- admax -->
-  <!-- admax -->
-  <script src="https://adm.shinobi.jp/s/3cf251fb670bdd987ddfc9de8597d99a"></script>
-  <!-- admax -->
   <div id="interface" style="display:none;">
     <h1>WEB VISION</h1>
-    <a href="https://cors-anywhere.herokuapp.com/">こちらにアクセスしてください</a>
-    <p>表示したい URL を入力してください（YouTube URLの場合は iframe で埋め込み表示されます）　：</p>
-    <form id="urlForm">
+    <p>表示したいURLを入力してください（YouTubeなら埋め込み、他は<b>自作プロキシ</b>で表示）:</p>
+    <form id="urlForm" autocomplete="off">
       <input type="text" id="urlInput" placeholder="https://example.com または YouTube URL" required>
       <button type="submit">表示</button>
     </form>
-    <p>
-     
+    <p style="font-size:0.95em;color:#666;">
+      ※YouTubeはiframe、その他は <a href="https://proxy-bay-gamma-75.vercel.app/" target="_blank">自作プロキシ</a> 経由で表示します。
     </p>
   </div>
   <div id="result"></div>
-
+  <div id="toolbar" style="display:none;">
+    <button id="backBtn" title="戻る">戻る</button>
+    <button id="fullscreenBtn" title="全画面">全画面</button>
+    <button id="reloadBtn" title="再読込">再読込</button>
+    <button id="copyUrlBtn" title="URLコピー">URLコピー</button>
+  </div>
   <script>
-    // ログインダイアログ
+    // ---- ログイン ----
     function login() {
       let password = prompt("パスワードを入力してください:", "");
       if (password === null) {
-        // キャンセル
         document.body.innerHTML = "<p>認証がキャンセルされました。</p>";
         return false;
       }
@@ -58,68 +125,143 @@
         return false;
       }
     }
-
-    // ページ読み込み時にログイン必須
     window.onload = function() {
       login();
     };
 
-    // URLクエリから取得しない方式に修正
-    document.getElementById("urlForm").addEventListener("submit", function(e) {
+    // ---- UI操作 ----
+    const urlForm = document.getElementById("urlForm");
+    const urlInput = document.getElementById("urlInput");
+    const resultDiv = document.getElementById("result");
+    const toolbar = document.getElementById("toolbar");
+    let currentUrl = "";
+    let lastHtmlText = "";
+
+    urlForm.addEventListener("submit", function(e) {
       e.preventDefault();
-      const url = document.getElementById("urlInput").value;
-      displayTargetUrl(url);
+      let url = urlInput.value.trim();
+      if (!/^https?:\/\//i.test(url)) {
+        alert("http(s):// から始まるURLを入力してください。");
+        return;
+      }
+      openInViewer(url);
     });
 
-    function displayTargetUrl(targetUrl) {
-      const resultDiv = document.getElementById("result");
-      resultDiv.innerHTML = ""; // 毎回クリア
+    document.getElementById("fullscreenBtn").onclick = function() {
+      if (!document.fullscreenElement) {
+        resultDiv.requestFullscreen && resultDiv.requestFullscreen();
+      } else {
+        document.exitFullscreen && document.exitFullscreen();
+      }
+    };
+    document.getElementById("backBtn").onclick = function() {
+      resultDiv.classList.remove("fullscreen");
+      resultDiv.style.display = "none";
+      toolbar.style.display = "none";
+      document.getElementById("interface").style.display = "";
+      resultDiv.innerHTML = "";
+      urlInput.focus();
+      history.replaceState({}, '', location.pathname);
+    };
+    document.getElementById("reloadBtn").onclick = function() {
+      if (currentUrl) openInViewer(currentUrl, true);
+    };
+    document.getElementById("copyUrlBtn").onclick = function() {
+      if (currentUrl) {
+        navigator.clipboard.writeText(currentUrl);
+        alert('URLをコピーしました');
+      }
+    };
 
-      // YouTube URL かどうかを判定
-      if (targetUrl.includes("youtube.com") || targetUrl.includes("youtu.be")) {
+    // ---- 全画面・ESC対応 ----
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape" && resultDiv.classList.contains("fullscreen")) {
+        document.getElementById("backBtn").click();
+      }
+    });
+
+    // ---- メインビューア ----
+    function openInViewer(url, forceReload) {
+      currentUrl = url;
+      lastHtmlText = "";
+      document.getElementById("interface").style.display = "none";
+      toolbar.style.display = "";
+      resultDiv.classList.add("fullscreen");
+      resultDiv.style.display = "block";
+      resultDiv.innerHTML = `<div style="color:#fff;text-align:center;padding:40px;font-size:1.4em;">読み込み中...</div>`;
+
+      // YouTube特別処理
+      if (url.includes("youtube.com") || url.includes("youtu.be")) {
         let videoId = "";
-        // youtube.com の場合 (例: https://www.youtube.com/watch?v=VIDEOID)
-        const ytMatch = targetUrl.match(/[?&]v=([^&#]+)/);
+        const ytMatch = url.match(/[?&]v=([^&#]+)/);
         if (ytMatch && ytMatch[1]) {
           videoId = ytMatch[1];
         } else {
-          // youtu.be の場合 (例: https://youtu.be/VIDEOID)
-          const ytShortMatch = targetUrl.match(/youtu\.be\/([^&#]+)/);
+          const ytShortMatch = url.match(/youtu\.be\/([^&#]+)/);
           if (ytShortMatch && ytShortMatch[1]) {
             videoId = ytShortMatch[1];
           }
         }
         if (videoId) {
-          // iframe 埋め込みで表示
           resultDiv.innerHTML = `
-            <iframe width="560" height="315" 
+            <iframe width="100%" height="100%" style="width:100vw;height:100vh;display:block;border:none;"
               src="https://www.youtube.com/embed/${videoId}" 
-              frameborder="0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowfullscreen>
             </iframe>
           `;
+          return;
         } else {
-          resultDiv.innerHTML = "<p>無効なYouTube URLです。</p>";
+          resultDiv.innerHTML = "<p style='color:#fff;'>無効なYouTube URLです。</p>";
+          return;
         }
-      } else {
-        // YouTube 以外は cors-anywhere 経由で取得して表示
-        resultDiv.innerHTML = "<p>取得中...</p>";
-        const proxyUrl = "https://cors-anywhere.herokuapp.com/";
-        fetch(proxyUrl + targetUrl)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error("ネットワークエラー: " + response.status);
-            }
-            return response.text();
-          })
-          .then(htmlText => {
-            resultDiv.innerHTML = htmlText;
-          })
-          .catch(err => {
-            resultDiv.innerHTML = "<p>エラー: " + err.message + "</p>";
-          });
       }
+
+      // 自作プロキシで取得
+      const proxyBase = "https://proxy-bay-gamma-75.vercel.app/api/";
+      // Vercelプロキシは /https://example.com/ のようにスラッシュ直結で指定
+      const proxyUrl = proxyBase + encodeURIComponent(url);
+      fetch(proxyUrl)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("ネットワークエラー: " + response.status);
+          }
+          return response.text();
+        })
+        .then(htmlText => {
+          lastHtmlText = htmlText;
+          let baseHref = url;
+          if (!baseHref.endsWith('/')) {
+            baseHref = baseHref.replace(/\/[^\/?#]+([?#].*)?$/, '/');
+          }
+          const baseTag = `<base href="${baseHref}">`;
+          let htmlWithBase;
+          if (/<head[^>]*>/i.test(htmlText)) {
+            htmlWithBase = htmlText.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+          } else if (/<html[^>]*>/i.test(htmlText)) {
+            htmlWithBase = htmlText.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}</head>`);
+          } else {
+            htmlWithBase = baseTag + htmlText;
+          }
+          // iframeでサンドボックス表示
+          resultDiv.innerHTML =
+            `<iframe id="siteFrame" srcdoc="${escapeHtmlForSrcdoc(htmlWithBase)}" style="width:100vw;height:100vh;display:block;border:none;background:#fff;" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>`;
+        })
+        .catch(err => {
+          resultDiv.innerHTML = `<div style="color:#fff;text-align:center;padding:40px;">エラー: ${err.message}<br><br>
+          <span style="font-size:0.9em;">プロキシが制限されている場合は <a href="${proxyBase}" target="_blank" style="color:#aaf;">こちら</a> をご確認ください。</span></div>`;
+        });
+    }
+
+    // srcdoc用エスケープ
+    function escapeHtmlForSrcdoc(html) {
+      return html
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     }
   </script>
 </body>
